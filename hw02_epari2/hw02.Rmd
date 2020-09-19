@@ -1,0 +1,310 @@
+---
+title: 'STAT 420: Homework 02'
+author: "Fall 2020, Sahana Epari"
+date: 'Due: Tuesday, September 22 by 11:30 PM CT'
+output:
+  html_document:
+    theme: readable
+    toc: yes
+---
+
+
+# Assignment
+
+## Exercise 1 (Writing Simple Functions)
+
+For each of the following parts, use the following vectors:
+
+```{r}
+a = 1:10
+b = 10:1
+c = rep(1, times = 10)
+d = 2 ^ (1:10)
+```
+
+**(a)** Write a function called `sum_of_squares`.
+
+- Arguments:
+    - A vector of numeric data `x`.
+- Output:
+    - The sum of the squares of the elements of the vector. $\sum_{i = 1}^n x_i^2$
+    
+Provide your function, as well as the result of running the following code:
+
+```{r, eval = FALSE}
+sum_of_squares = function(x) {
+  sum(x^2)
+}
+
+sum_of_squares(x = a)
+sum_of_squares(x = c(c, d))
+```
+
+**(b)** Write a function called `sum_of_power`.
+
+- Arguments:
+    - A vector of numeric data `x`.
+    - `p` which should have the default value of `2`.
+- Output:
+    - $\sum_{i = 1}^n x_i^{p}$
+    
+Provide your function, as well as the result of running the following code:
+
+```{r, eval = FALSE}
+sum_of_power = function(x,p=2) {
+  sum(x^p)
+}
+
+
+sum_of_power(x = a)
+sum_of_power(x = a, p = 3)
+sum_of_power(x = a, p = a)
+sum_of_power(x = a, p = c(1, 2))
+```
+
+**(c)** Write a function called `rms_diff`.
+
+- Arguments:
+    - A vector of numeric data `x`.
+    - A vector of numeric data `y`.
+- Output:
+    - $\sqrt{\frac{1}{n}\sum_{i = 1}^n (x_i - y_i)^{2}}$
+    
+Provide your function, as well as the result of running the following code:
+
+```{r, eval = FALSE}
+rms_diff = function(x,y) {
+  sqrt((1/length(x))*sum((x-y)^2))
+}
+
+
+rms_diff(x = a, y = b)
+rms_diff(x = d, y = c)
+rms_diff(x = d, y = 1)
+rms_diff(x = a, y = 0) ^ 2 * length(a)
+```
+
+## Exercise 2 (Plotting, Testing)
+
+For this exercise we will use [the data that is stored in `intelligence.csv`](intelligence.csv) which records IQs of a random sample of residents of Pawnee and Eagleton, Indiana.
+
+**(a)** Load the data from `intelligence.csv` into a variable in `R` called `intelligence`. Show the code used to do this. 
+
+```{r}
+intelligence <- read.csv("intelligence.csv")
+```
+
+**(b)** Create a side-by-side boxplot that compares the IQs across the two towns. Be sure to give the plot a title and label the axes appropriately.
+
+```{r}
+library(ggplot2)
+ggplot(intelligence,aes(x=town,y=iq))+geom_boxplot(fill="light blue") + ggtitle("Comparing IQ's of Two Towns in Indiana")
+```
+
+**(c)** Are people from Eagleton smarter than people from Pawnee? Perform an appropriate statistical test using the given sample data. That is, test $H_0: \mu_E = \mu_P$ vs $H_1: \mu_E > \mu_P$, where
+
+- $\mu_E$ is the mean IQ of a resident of Eagleton.
+- $\mu_P$ is the mean IQ of a resident of Pawnee.
+
+Explicitly state the p-value of the test and the resulting statistical decision at a significance level $\alpha = 0.10$. Interpret the results in the context of the problem.
+
+```{r}
+#Subset Data
+pawneeIQ <- intelligence[intelligence$town == "pawnee",1]
+eagletonIQ <- intelligence[intelligence$town == "eagleton",1]
+
+t.test(eagletonIQ, pawneeIQ, alternative=c("greater"),var.equal=TRUE)$p.value
+```
+
+The p-value of the t-test is 0.347684. This is greater than our alpha of 0.10, meaning that that we fail to reject the null hypothesis that there is no difference between Eagleton's IQ and Pawnee's IQ.
+
+**(d)** Repeat **(c)** using a two-sided alternative hypothesis. What changes?
+
+```{r}
+t.test(eagletonIQ,pawneeIQ,alternative=c("two.sided"),var.equal = TRUE)$p.value
+```
+
+With a two-sided test, the p-value increase. We still fail to reject the null hypothesis.
+
+## Exercise 3 (Writing More Functions)
+
+In this exercise we will write our own functions related to performing a one-sample $t$ test. That is $H_{0}: \mu = \mu_{0}$ versus $H_{1}: \mu \neq \mu_{0},$ where $\mu_{0}$ is the hypothesized value of $\mu$.
+
+Throughout this exercise you may **not** use the `t.test()` function inside your functions. You may use it to check your work separately, but no such double-checks should appear in your final report.
+
+Some built in `R` functions that may be useful to you when writing your functions include: `c()`, `ifelse()`, `mean()`, `sd()`, `abs()`, `length()`, `sqrt()`, and `pt()`.
+
+**(a)** Write a function called `do_t_test` which takes two inputs:
+
+- `x`: A vector which stores observations.
+- `mu`: The hypothesized value of $\mu$ which defaults to `0`.
+
+The function should output:
+
+- The value of the test statistic, $t$.
+- The p-value of the test. The function only needs to be able to handle a two-sided alternative.
+
+In order to output both, consider using `c(t, pval)` as the last line of your function, and store those two values elsewhere in the body of your function.
+
+```{r}
+
+do_t_test = function(x,mu=0) {
+  xbar <- mean(x)
+  sdx <- sd(x)
+  t <- (xbar - mu)/(sdx/sqrt(length(x)))
+  pval <- 2*pt(t,df=length(x)-1) #two-sided alternative
+  c(t,pval)
+}
+```
+
+**(b)** Write a function called `make_decision` which takes two inputs:
+
+- `pval`: The p-value of a test.
+- `alpha`: The significance level of a test. Set a default value of `0.05`.
+
+The function should output `"Reject!"` or `"Fail to Reject."` based on the comparison of `pval` to `alpha`.
+
+```{r}
+make_decision = function(pval,alpha=0.05) {
+  ifelse(pval >= alpha,"Fail To Reject.","Reject!")
+}
+
+```
+
+**(c)** Now we will test the quality of your functions from parts **(a)** and **(b)**. Run the following code:
+
+```{r, eval = FALSE}
+set.seed(114)
+y = rnorm(25, 1.4, 1)
+pval = do_t_test(y, mu = 2)[2]
+pval
+make_decision(pval, alpha = 0.10)
+```
+
+If your `do_t_test()` and `make_decision()` functions are correct, you should obtain a decision of `"Reject."` You will also be evaluated on whether the numeric p-value you obtain is correct.
+
+
+
+## Exercise 4 (CLT Simulation)
+
+For this exercise we will simulate from the exponential distribution. If a random variable $X$ has an exponential distribution with rate parameter $\lambda$, the pdf of $X$ can be written
+
+\[
+f(x;\lambda) = \lambda e ^ {-\lambda x}
+\]
+
+for $x \geq 0$.
+
+Also recall,
+
+\[
+\begin{aligned}
+\mu &= E[X] = \frac{1}{\lambda} \\
+\sigma^ 2 &= Var[X] = \frac{1}{\lambda ^ 2}
+\end{aligned}
+\]
+
+**(a)** This exercise relies heavily on generating random observations. To make this reproducible we will set a seed for the randomization. Alter the following code to make `birthday` store your birthday in the format: `yyyymmdd`. For example, [William Gosset](https://en.wikipedia.org/wiki/William_Sealy_Gosset), better known as *Student*, was born on June 13, 1876, so he would use:
+
+```{r}
+birthday = 19990503
+set.seed(birthday)
+```
+
+**(b)** Simulate 10000 samples of size **5** from an exponential distribution with $\lambda = 2$. Store the mean of each sample in a vector. Plot a histogram of these sample means. (Be sure to give it a title, and label the axes appropriately.) Based on the histogram, do you think the central limit theorem applies here?
+
+```{r}
+mu = 2
+sample_size = 5
+samples=10000
+x_bars = rep(0,samples)
+
+for (i in 1:samples) {
+  x_bars[i] = mean(rexp(sample_size,mu))
+}
+
+hist(x_bars,breaks=30,main="Histogram of sample Means",xlab="Sample Means")
+```
+
+The CLT does not seem to apply there as there seems to be a tail on the right of the histogram (not normal).
+
+
+**(c)** Simulate 10000 samples of size **100** from an exponential distribution with $\lambda = 2$. Store the mean of each sample in a vector. Plot a histogram of these sample means. (Be sure to give it a title, and label the axes appropriately.) Based on the histogram, do you think the central limit theorem applies here?
+
+```{r}
+mu = 2
+sample_size = 100
+sim=10000
+x_bars = rep(0,samples)
+
+for (i in 1:sim) {
+  x_bars[i] = mean(rexp(sample_size,mu))
+}
+
+hist(x_bars,breaks=30,main="Histogram of sample Means",xlab="Sample Means")
+```
+
+This histogram is more normal (centered around mean), we can assume the CLT holds true here.
+
+
+**(d)** We just repeated ourselves, so that means we probably should be writing a function. Write a function called `sim_xbars_exp` which takes three inputs:
+
+- The number of samples to simulate.
+- The sample size.
+- The rate parameter of an exponential distribution.
+
+The function should output a vector of sample means which are the result of sampling from an exponential distribution as specified by the inputs.
+
+Use your function to simulate 25000 samples of size **50** from an exponential distribution with $\lambda = 3$. Store the mean of each sample in a vector. Plot a histogram of these sample means. (Be sure to give it a title, and label the axes appropriately.)
+
+```{r}
+sim_xbars_exp = function(sample_size,samples,mu) {
+  x_bars = rep(0,samples)
+  for (i in 1:samples) {
+    x_bars[i] = mean(rexp(sample_size,mu))
+  }
+  x_bars
+}
+
+hist(sim_xbars_exp(50,25000,3), breaks=50,main="Histogram of sample Means",xlab="Sample Means")
+```
+
+## Exercise 5 (More Simulation)
+
+Let $X$ follow an exponential distribution with rate parameter $\lambda_X = 2$. Let $Y$ follow a Poisson distribution with rate parameter $\lambda_Y = 3$.
+
+We write $sd(X)$ for the true standard deviation of $X$ and $m(Y)$ for the true median of $Y$.
+
+Let $s_x$ be the sample standard deviation of $X$ which is an estimate of $sd(X)$. Also let $m_y$ be the sample median which is an estimate of $m(Y)$.
+
+Suppose we take samples of size $n_x = 10$ from $X$ and take samples of size $n_y = 5$. Consider the statistic
+
+\[
+\frac{s_x}{m_y}.
+\]
+
+What is the (sampling) distribution of $\frac{s_x}{m_y}$? We could ask a statistician who specializes in theory. Instead of using mathematics, simulate $\frac{s_x}{m_y}$ 5000 times and store the results. Plot a histogram of the observed values of $\frac{s_x}{m_y}$. Comment on the shape of the histogram and empirical distribution of $\frac{s_x}{m_y}$. Before running your code, set the same seed used for the previous exercise. For full credit, do **not** use a `for` loop.
+
+```{r}
+set.seed(birthday)
+
+nx=10
+ny=5
+samples = 5000
+
+#make an empty data frame
+df= data.frame(rep(0,samples))
+
+X = apply(df,1, function(df) sd(rexp(nx,2)))
+Y = apply(df,1, function(df) median(rpois(ny,3)))
+statistic = X/Y
+
+hist(statistic, breaks=50,main="Histogram of Sample Statistic",xlab="Sample Statistics SD(X)/Med(Y)")
+
+```
+
+There is a very obvious right tail in this histogram, meaning it is not normally distributed.
+
+
+
+
