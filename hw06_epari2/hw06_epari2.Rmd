@@ -1,0 +1,252 @@
+---
+title: 'STAT 420: Homework 06'
+author: "Sahana Epari"
+date: 'Due: Tuesday, October 20 by 11:30 PM CT'
+output:
+  html_document:
+    theme: readable
+    toc: yes
+---
+
+
+# Assignment
+
+## Exercise 1 (Regression for Explanation)
+
+For this exercise use the `prostate` dataset from the `faraway` package. Use `?prostate` to learn about the dataset. The goal of this exercise is to find a model that is useful for **explaining** the response `lpsa`.
+
+Fit a total of five models.
+
+- One must use all possible predictors.
+- One must use only `lcavol` as a predictor.
+- The remaining three you must choose. The models you choose must be picked in a way such that for any two of the five models, one is nested inside the other.
+
+Argue that one of the five models is the best among them for explaining the response. Use appropriate methods and justify your answer.
+
+```{r}
+library(faraway)
+data(prostate)
+model1 <- lm(lpsa ~ ., data=prostate)
+model2 <- lm(lpsa ~ lcavol,data=prostate)
+model3 <- lm(lpsa ~ lcavol + svi, data=prostate)
+model4 <- lm(lpsa ~ lcavol + svi + lweight, data=prostate)
+model5 <- lm(lpsa ~ lcavol + svi + lweight + lbph, data=prostate)
+
+anova(model2,model3)
+anova(model3,model4)
+anova(model4,model5)
+anova(model5,model1)
+```
+
+**Test 1**: Between Models 2 and 3
+P-value = 0.003172
+Conclusion: small p-value indicates we prefer model 3 over model 2.
+
+**Test 2**: Between Models 3 and 4
+P-value = 0.001039
+Conclusion: Small p-value indicates we prefer model 4 over model 3.
+
+**Test 3**: Between Models 4 and 5
+P-value = 0.1121
+Conclusion: Larger p-value indicates that we cannot reject model 4.
+
+Model 4 with the predictors lcavol, svi, and lweight seems to be the best option.
+
+lcavol = log(cancer volume)
+svi = seminal vesicle invasion
+lweight = log(prostate weight)
+
+## Exercise 2 (Regression for Prediction)
+
+For this exercise use the `Boston` dataset from the `MASS` package. Use `?Boston` to learn about the dataset. The goal of this exercise is to find a model that is useful for **predicting** the response `medv`.
+
+When evaluating a model for prediction, we often look at RMSE. However, if we both fit the model with all the data, as well as evaluate RMSE using all the data, we're essentially cheating. We'd like to use RMSE as a measure of how well the model will predict on *unseen* data. If you haven't already noticed, the way we had been using RMSE resulted in RMSE decreasing as models became larger.
+
+To correct for this, we will only use a portion of the data to fit the model, then we will use leftover data to evaluate the model. We will call these datasets **train** (for fitting) and **test** (for evaluating). The definition of RMSE will stay the same
+
+\[
+\text{RMSE}(\text{model, data}) = \sqrt{\frac{1}{n} \sum_{i = 1}^{n}(y_i - \hat{y}_i)^2}
+\]
+
+where
+
+- $y_i$ are the actual values of the response for the given data
+- $\hat{y}_i$ are the predicted values using the fitted model and the predictors from the data
+
+However we will now evaluate it on both the **train** set and the **test** set separately. So each model you fit will have a **train** RMSE and a **test** RMSE. When calculating **test** RMSE, the predicted values will be found by predicting the response using the **test** data with the model fit using the **train** data. *__Test__ data should never be used to fit a model.*
+
+- Train RMSE: Model fit with train data. Evaluate on **train** data.
+- Test RMSE: Model fit with train data. Evaluate on **test** data.
+
+Set a seed of `42` and then split the `Boston` data into two datasets, one called `train_data` and one called `test_data`. The `train_data` dataframe should contain 400 randomly chosen observations. `test_data` will contain the remaining observations. Hint: consider the following code:
+
+```{r}
+library(MASS)
+data(Boston)
+set.seed(42)
+train_index = sample(1:nrow(Boston), 400)
+```
+
+Fit a total of five models using the training data.
+
+- One must use all possible predictors.
+- One must use only `crim` as a predictor.
+- The remaining three you can pick to be anything you like. One of these should be the best of the five for predicting the response.
+
+For each model report the **train** and **test** RMSE. Argue that one of your models is the best for predicting the response.
+
+```{r}
+train_data = Boston[train_index,]
+test_data = Boston[-train_index,]
+
+bostonmodel1 = lm(medv ~ .,data=train_data)
+bostonmodel2 = lm(medv~crim,data=train_data)
+bostonmodel3 = lm(medv~crim+tax+ptratio+black, data=train_data)
+bostonmodel4 = lm(medv~crim+tax +zn + indus + ptratio + black + dis + rad, data=train_data)
+bostonmodel5 = lm(medv~crim + chas + black + nox + dis + rad + rm + lstat, data=train_data)
+
+#rmse function
+rmse = function(realvalues,predictedvalues) {
+  sqrt(mean((realvalues - predictedvalues)^2))
+}
+
+TrainE1 = rmse(train_data$medv,predict(bostonmodel1,train_data))
+TrainE2 = rmse(train_data$medv,predict(bostonmodel2,train_data))
+TrainE3 = rmse(train_data$medv,predict(bostonmodel3,train_data))
+TrainE4 = rmse(train_data$medv,predict(bostonmodel4,train_data))
+TrainE5 = rmse(train_data$medv,predict(bostonmodel5,train_data))
+
+TestE1 = rmse(test_data$medv,predict(bostonmodel1,test_data))
+TestE2 = rmse(test_data$medv,predict(bostonmodel2,test_data))
+TestE3 = rmse(test_data$medv,predict(bostonmodel3,test_data))
+TestE4 = rmse(test_data$medv,predict(bostonmodel4,test_data))
+TestE5 = rmse(test_data$medv,predict(bostonmodel5,test_data))
+
+TrainErrors = c(TrainE1,TrainE2,TrainE3,TrainE4,TrainE5)
+TestErrors = c(TestE1,TestE2,TestE3,TestE4,TestE5)
+data.frame(TrainErrors,TestErrors)
+
+```
+
+Model 1 (with all the predictors) has the lowest test RMSE at 4.7677, this would be the ideal model to choose.
+
+## Exercise 3 (Simulating Multiple Regression)
+
+For this exercise we will simulate data from the following model:
+
+\[
+Y_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \beta_3 x_{i3} + \beta_4 x_{i4} + \epsilon_i
+\]
+
+Where $\epsilon_i \sim N(0, \sigma^2).$ Also, the parameters are known to be:
+
+- $\beta_0 = 2$
+- $\beta_1 = 3$
+- $\beta_2 = 4$
+- $\beta_3 = 0$
+- $\beta_4 = 1$
+- $\sigma^2 = 16$
+
+We will use samples of size `n = 25`.
+
+We will verify the distribution of $\hat{\beta}_1$ as well as investigate some hypothesis tests.
+
+**(a)** We will first generate the $X$ matrix and data frame that will be used throughout the exercise. Create the following 9 variables:
+
+- `x0`: a vector of length `n` that contains all `1`
+- `x1`: a vector of length `n` that is randomly drawn from a uniform distribution between `0` and `10`
+- `x2`: a vector of length `n` that is randomly drawn from a uniform distribution between `0` and `10`
+- `x3`: a vector of length `n` that is randomly drawn from a uniform distribution between `0` and `10`
+- `x4`: a vector of length `n` that is randomly drawn from a uniform distribution between `0` and `10`
+- `X`: a matrix that contains `x0`, `x1`, `x2`, `x3`, `x4` as its columns
+- `C`: the $C$ matrix that is defined as $(X^\top X)^{-1}$
+- `y`: a vector of length `n` that contains all `0`
+- `ex_4_data`: a data frame that stores `y` and the **four** predictor variables. `y` is currently a placeholder which we will update during the simulation
+
+Report the diagonal of `C` as well as the 10th row of `ex_4_data`. For this exercise we will use the seed `42`.
+
+```{r}
+set.seed(42)
+n = 25
+x0 = rep(1,n)
+x1 = runif(n,0,10)
+x2 = runif(n,0,10)
+x3 = runif(n,0,10)
+x4 = runif(n,0,10)
+X = cbind(x0,x1,x2,x3,x4)
+C = solve(t(X) %*% X)
+y = rep(0,n)
+ex_4_data = data.frame(y,x1,x2,x3,x4)
+
+diag(C)
+ex_4_data[10,]
+```
+
+
+
+**(b)** Create three vectors of length `1500` that will store results from the simulation in part **(c)**. Call them `beta_hat_1`, `beta_2_pval`, and `beta_3_pval`.
+
+```{r}
+num_sims = 1500
+beta_hat_1 = rep(0,num_sims)
+beta_2_pval = rep(0,num_sims)
+beta_3_pval = rep(0,num_sims)
+```
+
+**(c)** Simulate 1500 samples of size `n = 25` from the model above. Each time update the `y` value of `ex_4_data`. Then use `lm()` to fit a multiple regression model. Each time store:
+
+- The value of $\hat{\beta}_1$ in `beta_hat_1`
+- The p-value for the two-sided test of $\beta_2 = 0$ in `beta_2_pval`
+- The p-value for the two-sided test of $\beta_3 = 0$ in `beta_3_pval`
+
+```{r}
+library(broom)
+beta_0 = 2
+beta_1 = 3
+beta_2 = 4
+beta_3 = 0
+beta_4 = 1
+sigma = 4
+
+for (i in 1:num_sims) {
+    eps = rnorm(n, mean = 0 , sd = sigma)
+  ex_4_data$y   = beta_0*x0+beta_1*x1+beta_2*x2 + beta_3*x3 + beta_4*x4 + eps
+  fit = lm(y ~ ., data = ex_4_data)
+  beta_hat_1[i]  = coef(fit)[2]
+  beta_2_pval[i] = tidy(fit)[3, ]$p.value
+  beta_3_pval[i] = tidy(fit)[4, ]$p.value
+}
+```
+
+**(d)** Based on the known values of $X$, what is the true distribution of $\hat{\beta}_1$?
+
+```{r}
+sigma ^2 * C[1+1,1+1]
+```
+
+**(e)** Calculate the mean and variance of `beta_hat_1`. Are they close to what we would expect? Plot a histogram of `beta_hat_1`. Add a curve for the true distribution of $\hat{\beta}_1$. Does the curve seem to match the histogram?
+
+```{r}
+mean(beta_hat_1)
+var(beta_hat_1)
+```
+
+```{r}
+hist(beta_hat_1,prob=TRUE,breaks=20,,main="")
+curve(dnorm(x, mean = beta_1, sd = sqrt(sigma ^ 2 * C[1 + 1, 1 + 1])), col = "darkorange", add = TRUE, lwd = 3)
+```
+
+
+**(f)** What proportion of the p-values stored in `beta_3_pval` are less than 0.05? Is this what you would expect?
+
+```{r}
+mean(beta_3_pval < 0.05)
+```
+
+Yes, this is what we would expect.
+**(g)** What proportion of the p-values stored in `beta_2_pval` are less than 0.05? Is this what you would expect?
+
+```{r}
+mean(beta_2_pval < 0.05)
+```
+Yes, this is what we would expect.
