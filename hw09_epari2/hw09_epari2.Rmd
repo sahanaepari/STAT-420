@@ -1,0 +1,227 @@
+---
+title: 'STAT 420: Homework 09'
+author: "Fall 2020, Sahana Epari"
+date: 'Due: Tuesday, November 10 by 11:30 PM CT'
+output:
+  html_document:
+    theme: readable
+    toc: yes
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+options(scipen = 1, digits = 4, width = 80)
+```
+
+
+# Assignment
+
+## Exercise 1 (Writing Functions)
+
+**(a)** Write a function that takes as input a model object (variable) fit via `lm()` and outputs a fitted versus residuals plot. Also, create arguments `pointcol` and `linecol`, which control the point and line colors, respectively. Code the plot to add a horizontal line at $y = 0$, and label the $x$-axis "Fitted" and the $y$-axis "Residuals".
+
+```{r}
+FitvsResidPlot = function(fit,pointcol='blue',linecol='red') {
+  plot(fitted(fit),resid(fit),col=pointcol,xlab = "Fitted",ylab="Residuals")
+  abline(h=0,col=linecol,lwd=3)
+}
+```
+
+**(b)** Write a function that takes as input a model fit via `lm()` and plots a Normal Q-Q plot of the residuals. Also, create arguments `pointcol` and `linecol`, which control the point and line colors, respectively. Code the plot to add the line from `qqline()`.
+
+```{r}
+QQPlot = function(fit,pointcol="blue",linecol='red'){
+  qqnorm(resid(fit),main="Normal Q-Q Plot",col=pointcol)
+  qqline(resid(fit),col=linecol,lwd=3)
+}
+```
+
+**(c)** Test your two functions above on the `test_fit` model. For both functions, specify point and line colors that are not black.
+
+```{r}
+set.seed(114)
+test_data = data.frame(x = runif(n = 20, min = 0, max = 10),
+                       y = rep(x = 0, times = 20))
+test_data$y = with(test_data, 5 + 2 * x + rnorm(n = 20))
+test_fit = lm(y ~ x, data = test_data)
+```
+
+```{r}
+FitvsResidPlot(test_fit,'blue','red')
+QQPlot(test_fit,'blue','red')
+```
+
+
+## Exercise 2 (Swiss Fertility Data)
+
+For this exercise we will use the `swiss` data, which can be found in the `faraway` package. After loading the `faraway` package, use `?swiss` to learn about this dataset.
+
+```{r, message = FALSE, warning = FALSE}
+library(faraway)
+data(swiss)
+```
+
+**(a)** Fit an additive multiple regression model with `Fertility` as the response and the remaining variables in the `swiss` dataset as predictors. Output the estimated regression coefficients for this model.
+
+```{r}
+add = lm(Fertility~.,data=swiss)
+coef(add)
+```
+
+**(b)** Check the constant variance assumption for this model. Do you feel it has been violated? Justify your answer.
+
+```{r}
+FitvsResidPlot(add)
+```
+
+The constant variance assumption is held because there is roughly the same spread of residuals at every fit value.
+
+**(c)** Check the normality assumption for this model. Do you feel it has been violated? Justify your answer.
+
+```{r}
+QQPlot(add)
+```
+
+No, because we see a generally normal fit.
+
+**(d)** Check for any high leverage observations. Report any observations you determine to have high leverage.
+
+```{r}
+swiss[hatvalues(add)> 2* mean(hatvalues(add)),]
+```
+
+**(e)** Check for any influential observations. Report any observations you determine to be influential.
+
+```{r}
+swiss[cooks.distance(add) > 4 / length(cooks.distance(add)),]
+```
+
+**(f)** Refit the additive multiple regression model without any points you identified as influential. Compare the coefficients of this fitted model to the previously fitted model.
+
+```{r}
+data = swiss[cooks.distance(add) <= 4 / length(cooks.distance(add)),]
+bettermodel  = lm(Fertility ~ ., data=data)
+coef(bettermodel)-coef(add)
+```
+
+
+
+**(g)** Create a data frame that stores the observations that were "removed" because they were influential. Use the two models you have fit to make predictions with these observations. Comment on the difference between these two sets of predictions.
+
+```{r}
+influential = swiss[cooks.distance(add)>4/length(cooks.distance(add)),]
+predict(add,newdata = influential)-predict(bettermodel,newdata = influential)
+```
+
+```{r}
+predict(add,newdata = influential)-influential$Fertility
+predict(bettermodel,newdata = influential)-influential$Fertility
+```
+
+Bettermodel has larger residuals but does a better job of fitting the data.
+
+## Exercise 3 (Concrete, Again)
+
+Return to the [concrete data](concrete.csv) from the ANOVA homework. Recall, we chose the additive model. Now that we see how ANOVA can be framed as a linear model, check for any violation of assumptions for this model.
+
+```{r}
+concrete = read.csv("concrete.csv")
+mod = lm(strength~.,data=concrete)
+
+sum(hatvalues(mod) > 2 * mean(hatvalues(mod)))
+
+sum(abs(rstandard(mod)) > 2)
+
+cd_mod = cooks.distance(mod)
+sum(cd_mod > 4 / length(cd_mod))
+
+mod_fix = lm(strength ~ ., data = concrete, subset = cd_mod <= 4 / length(cd_mod))
+coef(mod_fix)-coef(mod)
+
+```
+
+There isn't a significant chance in coefficients after removing influential points, so the linear model is beneficial.
+
+## Exercise 4 (Why Bother?)
+
+**Why** do we care about violations of assumptions? One key reason is that the distributions of the parameters that we have used are all reliant on these assumptions. When the assumptions are violated, the distributional results are not correct, so our tests are garbage. **Garbage In, Garbage Out!**
+
+Consider the following setup that we will use for the remainder of the exercise. We choose a sample size of 50.
+
+```{r}
+n = 50
+set.seed(1)
+x_1 = runif(n, 0, 10)
+x_2 = runif(n, -5, 5)
+```
+
+Consider the model,
+
+\[
+Y = 2 + 1 x_1 + 0 x_2 + \epsilon.
+\]
+
+That is,
+
+- $\beta_0$ = 2
+- $\beta_1$ = 1
+- $\beta_2$ = 0
+
+We now simulate `y_1` in a manner that does not violate any assumptions, which we will verify. In this case $\epsilon \sim N(0, 1).$
+
+```{r}
+y_1 = 2 + x_1 + 0 * x_2 + rnorm(n = n, mean = 0, sd = 1)
+fit_1 = lm(y_1 ~ x_1 + x_2)
+qqnorm(resid(fit_1), col = "dodgerblue")
+qqline(resid(fit_1), col = "darkorange", lwd = 2)
+shapiro.test(resid(fit_1))
+```
+
+Then, we simulate `y_2` in a manner that **does** violate assumptions, which we again verify. In this case $\epsilon \sim N(0, \sigma = |x_2|).$
+
+```{r}
+y_2 = 2 + x_1 + 0 * x_2 + rnorm(n = n, mean = 0, sd = abs(x_2))
+fit_2 = lm(y_2 ~ x_1 + x_2)
+qqnorm(resid(fit_2), col = "dodgerblue")
+qqline(resid(fit_2), col = "darkorange", lwd = 2)
+shapiro.test(resid(fit_2))
+```
+
+**(a)** Use the following code after changing `birthday` to your birthday.
+
+```{r}
+num_sims = 1000
+p_val_1 = rep(0, num_sims)
+p_val_2 = rep(0, num_sims)
+birthday = 19990503
+set.seed(birthday)
+```
+
+Repeat the above process of generating `y_1` and `y_2` as defined above, and fit models with each as the response `1000` times. Each time, store the p-value for testing,
+
+\[
+\beta_2 = 0,
+\]
+
+using both models, in the appropriate variables defined above. (You do not need to use a data frame as we have in the past. Although, feel free to modify the code to instead use a data frame.)
+
+```{r}
+for (i in 1:num_sims){
+  y_1 = 2 + x_1 + 0 * x_2 + rnorm(n = n, mean = 0, sd = 1)
+  y_2 = 2 + x_1 + 0 * x_2 + rnorm(n = n, mean = 0, sd = abs(x_2))
+  fit1 = lm(y_1 ~ x_1 + x_2)
+  fit2 = lm(y_2 ~ x_1 + x_2)
+  p_val_1[i] = summary(fit1)$coefficients[3,4]
+  p_val_2[i] = summary(fit2)$coefficients[3,4]
+}
+```
+
+**(b)** What proportion of the `p_val_1` values are less than 0.05? Less than 0.10? What proportion of the `p_val_2` values are less than 0.05? Less than 0.10? Briefly explain these results.
+
+```{r}
+mean(p_val_1 < 0.05)
+mean(p_val_1<0.10)
+mean(p_val_2<0.05)
+mean(p_val_2<0.10)
+```
+
+For the model that did not violate any assumptions, less estimates reject the null hypothesis.

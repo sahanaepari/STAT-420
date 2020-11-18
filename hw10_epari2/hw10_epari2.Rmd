@@ -1,0 +1,387 @@
+---
+title: 'STAT 420: Homework 10'
+author: "Fall 2020, Sahana Epari, NetID: epari2"
+date: 'Due: Tuesday, November 17 by 11:30 PM CT'
+output:
+  html_document:
+    theme: readable
+    toc: yes
+---
+
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+options(scipen = 1, digits = 4, width = 80)
+```
+
+
+# Assignment
+
+## Exercise 1 (TV Is Healthy?)
+
+For this exercise we will use the `tvdoctor` data, which can be found in the `faraway` package. After loading the `faraway` package, use `?tvdoctor` to learn about this dataset.
+
+```{r, message = FALSE, warning = FALSE}
+library(faraway)
+?tvdoctor
+```
+
+**(a)** Fit a simple linear regression with `life` as the response and `tv` as the predictor. Plot a scatterplot and add the fitting line. Check the assumptions of this model.
+
+```{r}
+model = lm(life~tv,data=tvdoctor)
+plot(life~tv,data=tvdoctor,col="blue")
+abline(model,col="red",lwd=2)
+```
+
+Assumptions:
+1. Linearity and Constant Variance
+```{r}
+plot(fitted(model),resid(model),col="blue",xlab = "Fitted Values", ylab="Residuals")
+abline(h=0,lty=2,col="red",lwd=2)
+```
+Neither assumption is true because the mean of the residuals is not 0 and the spread is not the same for all fitted points.
+
+2. Normality of errors
+```{r}
+par(mfrow=c(1,2))
+hist(resid(model),xlab="Residuals",col="blue", main="Histogram of Residuals")
+qqnorm(resid(model),main="Normal Q-Q Plot",col="red")
+qqline(resid(model),col="dodgerblue")
+```
+
+As shown, the errors are not normally distributed.
+
+**(b)** Fit higher order polynomial models of degree 3, 5, and 7. For each, plot a fitted versus residuals plot and comment on the constant variance assumption. Based on those plots, which of these three models do you think are acceptable? Use a statistical test(s) to compare the models you just chose. Based on the test, which is preferred? Check the normality assumption of this model. Identify any influential observations of this model.
+
+```{r}
+fit3 = lm(life~tv + I(tv^2)+ I(tv^3),data=tvdoctor)
+fit5 = lm(life~tv + I(tv^2)+ I(tv^3) + I(tv^4) + I(tv^5),data=tvdoctor)
+fit7 = lm(life~tv + I(tv^2)+ I(tv^3) + I(tv^4) + I(tv^5) + I(tv^6) + I(tv^7),data=tvdoctor)
+
+par(mfrow=c(1,3))
+plot(fitted(fit3),resid(model),col="blue",xlab = "Fitted Values", ylab="Residuals", main="Degree 3")
+abline(h=0,lty=2,col="red",lwd=2)
+plot(fitted(fit5),resid(model),col="blue",xlab = "Fitted Values", ylab="Residuals",main="Degree 5")
+abline(h=0,lty=2,col="red",lwd=2)
+plot(fitted(fit7),resid(model),col="blue",xlab = "Fitted Values", ylab="Residuals",main="Degree 7")
+abline(h=0,lty=2,col="red",lwd=2)
+
+```
+
+The fifth degree and seventh degree follows the constant variance assumption.
+
+```{r}
+anova(fit5,fit7)
+```
+
+Due to a high p-value of 0.38, we can say that the fifth degree fit is a better option.
+
+```{r}
+par(mfrow=c(1,2))
+hist(resid(fit5), xlab="Residuals",main="Histogram of Residuals",col="blue")
+qqnorm(resid(fit5),main="Normal Q-Q Plot",col="red")
+qqline(resid(fit5),col="dodgerblue",lwd=2)
+```
+
+Here the histogram appears to be normal.
+
+```{r}
+tvdoctor[cooks.distance(fit5)>4 / length(cooks.distance(fit5)),]
+```
+
+There are multiple influential points.
+
+## Exercise 2 (Brains)
+
+The data set `mammals` from the `MASS` package contains the average body weight in kilograms $(x)$ and the average brain weight in grams $(y)$ for $62$ species of land mammals. Use `?mammals` to learn more.
+
+```{r, message = FALSE, warning = FALSE}
+library(MASS)
+```
+
+**(a)** What are the smallest and largest body weights in the dataset?
+
+```{r}
+min(mammals$body)
+max(mammals$body)
+```
+
+**(b)** What are the smallest and largest brain weights in the dataset?
+```{r}
+min(mammals$brain)
+max(mammals$brain)
+```
+
+**(c)** Plot average brain weight $(y)$ versus average body weight $(x)$.
+
+```{r}
+plot(brain ~ body, data=mammals, col = "blue", xlab = "Average Body Weight",ylab = "Average Brain Weight")
+```
+
+**(d)** Fit a linear model with `brain` as the response and `body` as the predictor. Test for significance of regression. Do you think this is an appropriate model?
+
+Recall, *the log rule*: if the values of a variable range over more than one order of magnitude and the variable is strictly positive, then replacing the variable by its logarithm is likely to be helpful.
+
+*Linear Model*
+
+```{r}
+mammalfit = lm(brain~body,data=mammals)
+summary(mammalfit)
+```
+
+The regression is significant due to the low p-value.
+
+```{r}
+plot(fitted(mammalfit),resid(mammalfit),col="blue",xlab="Fitted Values",ylab="Residuals")
+abline(h=0,lty=2,col="red",lwd=2)
+```
+
+The constant variation and linearity assumption is not supported with this data.
+
+```{r}
+par(mfrow=c(1,2))
+hist(resid(mammalfit), xlab="Residuals",main="Histogram of Residuals",col="blue")
+qqnorm(resid(mammalfit),main="Normal Q-Q Plot",col="red")
+qqline(resid(mammalfit),col="dodgerblue",lwd=2)
+```
+
+Normality of error assumption is also violated. The model is not appropriate for the data.
+
+*Log Model*
+
+```{r}
+logfit = lm(log(brain)~body,data=mammals)
+plot(fitted(logfit),resid(logfit),col="blue",xlab="Fitted Values",ylab="Residuals")
+abline(h=0,lty=2,col="red",lwd=2)
+```
+
+
+
+**(e)** Since the body weights do range over more than one order of magnitude and are strictly positive, we will use $\log(\text{body weight})$ as our *predictor*, with no further justification. Use the Box-Cox method to verify that $\log(\text{brain weight})$ is then a "recommended" transformation of the *response* variable. That is, verify that $\lambda = 0$ is among the "recommended" values of $\lambda$ when considering,
+
+\[
+g_\lambda(y) = \beta_0 + \beta_1 \log(\text{body weight})+\epsilon
+\]
+
+Please include the relevant plot in your results, using an appropriate zoom onto the relevant values.
+
+```{r}
+model = lm(brain~log(body),data=mammals)
+boxcox(model,lambda = seq(-0.25,0.25,by=0.05),plotit=TRUE)
+```
+
+As shown, `λ = 0` is among the recommended values of $\lambda$.
+
+**(f)** Fit the model justified in part **(e)**. That is, fit a model with $\log(\text{brain weight})$ as the response and $\log(\text{body weight})$ as a predictor. Plot $\log(\text{brain weight})$ versus $\log(\text{body weight})$ and add the regression line to the plot. Does a linear relationship seem to be appropriate here?
+
+```{r}
+par(mfrow=c(1,2))
+model2 = lm(log(brain)~log(body),data=mammals)
+plot(log(brain) ~ log(body), data = mammals, col = "blue", pch = 20, cex = .5 )
+abline(model2, col = "red")
+plot(fitted(model2), resid(model2), col = "blue", pch = 20, cex = .5, xlab = "Fitted Values", ylab = "Residuals")
+abline(h = 0, lty = 2, col = "red")
+```
+
+A linear relationship does seem to be appropriate in this case.
+
+
+**(g)** Use a Q-Q plot to check the normality of the errors for the model fit in part **(f)**.
+
+```{r}
+qqnorm(resid(model2), main = "Normal Q-Q Plot", col = "red")
+qqline(resid(model2), col = "blue", lwd = 2)
+```
+
+The Q-Q plot suggests that the normality assumption is not violated.
+
+**(h)** Use the model from part **(f)** to predict the brain weight of a male Pikachu which, has a body weight of 13.4 pounds. (Pikachu would be mammals, right?) Construct a 99% prediction interval.
+
+```{r}
+pikachu  = data.frame(body = 13.4)
+exp(predict(model2, pikachu, interval="prediction",level=0.99))
+```
+
+## Exercise 3 (EPA Emissions Data, Redux)
+
+For this exercise we will again use the data stored in [`epa2015.csv`](epa2015.csv). It contains detailed descriptions of 4,411 vehicles manufactured in 2015 that were used for fuel economy testing [as performed by the Environment Protection Agency]( https://www3.epa.gov/otaq/tcldata.htm).
+
+**(a)** Recall the model we had finished with last time:
+
+```{r}
+epa2015 = read.csv("epa2015.csv")
+epa2015$type = as.factor(epa2015$type)
+co2_int = lm(CO2 ~ horse * type, data = epa2015)
+```
+
+Which looked like this:
+
+```{r}
+plot(CO2 ~ horse, data = epa2015, col = type)
+
+int_coef = summary(co2_int)$coef[,1]
+
+int_both    = int_coef[1]
+int_car     = int_coef[1] + int_coef[3]
+int_truck   = int_coef[1] + int_coef[4]
+
+slope_both  = int_coef[2]
+slope_car   = int_coef[2] + int_coef[5]
+slope_truck = int_coef[2] + int_coef[6]
+
+abline(int_both, slope_both, lwd = 3, col = "black")
+abline(int_car, slope_car, lwd = 3, col = "red")
+abline(int_truck, slope_truck, lwd = 3, col = "green")
+```
+
+Create a fitted vs residuals plot for this model. Do you believe the constant variance assumption has been violated?
+
+```{r}
+plot(fitted(co2_int),resid(co2_int),col="blue",xlab="Fitted Values",ylab="Residuals")
+abline(h=0,lty=2,col="red",lwd=2)
+```
+
+The constant variance assumption seems to have been violated.
+
+**(b)** Fit the same model as **(a)** but with a logged response. Create a fitted vs residuals plot for this model. Compare to the previous. Do you believe the constant variance assumption has been violated? Any other assumptions?
+
+```{r}
+par(mfrow=c(1,2))
+co2_log = lm(log(CO2)~horse*type,data=epa2015)
+plot(fitted(co2_int), resid(co2_int), col = "dodgerblue", xlab = "Fitted Values", ylab = "Residuals")
+abline(h = 0, lty = 2, col = "red", lwd = 2)
+plot(fitted(co2_log), resid(co2_log), col = "dodgerblue", xlab = "Fitted Values", ylab = "Residuals")
+abline(h = 0, lty = 2, col = "red", lwd = 2)
+```
+
+The constant variance assumption is not violated for the logged response plot. The linearity assumption holds true because the residuals are mostly 0 at most fitted points.
+
+```{r}
+par(mfrow=c(1,2))
+hist(resid(co2_log), xlab   = "Residuals", main   = "Histogram of Residuals",
+     col    = "red")
+qqnorm(resid(co2_log), main = "Normal Q-Q Plot", col = "red")
+qqline(resid(co2_log), col = "blue", lwd = 2)
+```
+
+Histogram and Q-Q plot suggest normality assumption is violated.
+
+
+**(c)** Fit a model that has all of the terms from the model in **(b)** as well as a quadratic term for `horse`. Use `log(CO2)` as the response. Create a fitted vs residuals plot for this model. Compare to the previous. Comment on model assumptions.
+
+```{r}
+par(mfrow=c(1,2))
+co2_quad = lm(log(CO2)~horse*type+I(horse^2),data=epa2015)
+plot(fitted(co2_log), resid(co2_log), col = "blue", xlab = "Fitted Values", ylab = "Residuals")
+abline(h = 0, lty = 2, col = "red", lwd = 2)
+plot(fitted(co2_quad), resid(co2_quad), col = "blue", xlab = "Fitted Values", ylab = "Residuals")
+abline(h = 0, lty = 2, col = "red", lwd = 2)
+```
+
+This model is much better at holding the constant variation assumption. The linearity assumption also holds true.
+
+````{r}
+par(mfrow=c(1,2))
+hist(resid(co2_quad),xlab   = "Residuals", main   = "Histogram of Residuals",
+     col    = "red")
+qqnorm(resid(co2_quad), main = "Normal Q-Q Plot", col = "red")
+qqline(resid(co2_quad), col = "blue", lwd = 2)
+```
+
+The normality assumption does not seem to hold true.
+
+**(d)** Perform further analysis of the model fit in part **(c)**. Can you find any violations of assumptions?
+
+```{r}
+summary(co2_quad)
+```
+
+The interaction term is not significant. Normality, shown in the part above, does not seem to hold true.
+
+## Exercise 4 (Bigger Is Better?)
+
+Consider the true model,
+
+\[
+Y = 3 - 4 x + \epsilon,
+\]
+
+where $\epsilon \sim N(\mu = 0, \sigma = 9)$.
+
+We can simulate observations from this model. We choose a sample size of 40.
+
+```{r}
+n = 40
+set.seed(114)
+x = runif(n, 0 , 10)
+y = 3 - 4 * x + rnorm(n, 0 , 3)
+```
+
+Consider two models, one small, one big. The small fits a SLR model. The big fits a polynomial model of degree 10.
+
+```{r}
+fit_slr = lm(y ~ x)
+fit_big = lm(y ~ poly(x, 10))
+```
+
+The big model has a smaller RMSE.
+
+```{r}
+mean(resid(fit_slr) ^ 2)
+mean(resid(fit_big) ^ 2)
+```
+
+However, it is not significant when compared to the small.
+
+```{r}
+anova(fit_slr, fit_big)
+```
+
+By plotting the data and adding the two models, we see the the degree 10 polynomial is *very* wiggly. 
+
+```{r}
+plot(x, y, pch = 20, cex = 2)
+abline(fit_slr, col = "darkorange", lwd = 3)
+lines(seq(0, 10, 0.01), 
+      predict(fit_big, newdata = data.frame(x = seq(0, 10, 0.01))), 
+      col = 'dodgerblue', lwd = 3) 
+```
+
+**(a)** Use the following code after changing `birthday` to your birthday.
+
+```{r}
+num_sims = 1000
+rmse_slr = rep(0, num_sims)
+rmse_big = rep(0, num_sims)
+pval     = rep(0, num_sims)
+birthday = 19990503
+set.seed(birthday)
+```
+
+Repeat the above process, keeping `x` the same, then re-generating `y` and fitting the SLR and big models `1000` times. Each time, store the RMSE of each model, and the p-value for comparing the two. (In the appropriate variables defined above.)
+
+```{r}
+for (i in 1:num_sims){
+  y = 3 - 4 * x + rnorm(n, 0 , 3)
+  fit_slr = lm(y ~ x)
+  fit_big = lm(y ~ poly(x, 10))
+  rmse_slr[i] = mean(resid(fit_slr) ^ 2)
+  rmse_big[i] = mean(resid(fit_big) ^ 2)
+  pval[i] = anova(fit_slr,fit_big)$"Pr(>F)"[2]
+}
+```
+
+**(b)** What proportion of the RMSEs of the SLR model are smaller than the big model?
+
+```{r}
+mean(rmse_slr < rmse_big)
+```
+
+**(c)** What proportion of the p-values are less than 0.05?
+
+```{r}
+mean(pval <0.05)
+```
+
+**(d)** Do you think bigger is better?
+Bigger models might be overfitting the data, meaning it is not necessarily better.
